@@ -38,3 +38,4 @@ input[type=checkbox], input[type=radio] { accent-color: var(--purple); }
   .footer { display: none; }
 }
 @media(prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .view { animation: none; } }
+body, button, input, textarea, select { font-family: 'Vazirmatn', Tahoma, 'Segoe UI', Arial, sans-serif; }

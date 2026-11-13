@@ -44,11 +44,11 @@ function ActionForm({ children, submit, label }: {
 }
 
 export function Dashboard({ userId, section }: { userId: string; section: string }) {
-  const [membership, setMembership] = useState<{ role: Role; referral_code: string }>()
+  const [membership, setMembership] = useState<{ role: Role; referral_code: string; is_super_admin: boolean }>()
   const [error, setError] = useState(false)
   useEffect(() => {
     let active = true
-    void client().from('user_roles').select('role, referral_code').eq('user_id', userId).single()
+    void client().from('user_roles').select('role, referral_code, is_super_admin').eq('user_id', userId).single()
       .then(result => {
         if (!active) return
         if (result.error) setError(true)
@@ -64,11 +64,50 @@ export function Dashboard({ userId, section }: { userId: string; section: string
       ? <Referrals code={membership.referral_code} />
       : <p className="card">این پنل برای حساب نماینده فعال است.</p>)}
     {section === 'company' && (membership.role === 'administrator'
-      ? <Administration /> : <p className="card">این پنل برای مدیر شرکت فعال است.</p>)}
+      ? <><Administration /><SmsSettings superAdmin={membership.is_super_admin} /></>
+      : <p className="card">این پنل برای مدیر شرکت فعال است.</p>)}
     {(section === 'chat' || (section === 'company' && membership.role === 'administrator')) &&
       <Consultations role={membership.role} />}
     {section === 'chat' && <Chat />}
   </>
+}
+
+function SmsSettings({ superAdmin }: { superAdmin: boolean }) {
+  const [settings, setSettings] = useState<{
+    provider: string; connection_method: string; body_id: string | null
+    sender: string | null; status: string; last_checked_at: string | null
+  } | null>(null)
+  const [status, setStatus] = useState('در حال بررسی تنظیمات سرویس پیامکی…')
+
+  useEffect(() => {
+    if (!superAdmin) {
+      setStatus('تنظیمات Secret فقط برای مدیر اصلی قابل مدیریت است.')
+      return
+    }
+    void client().from('sms_service_settings').select(
+      'provider, connection_method, body_id, sender, status, last_checked_at'
+    ).eq('id', true).maybeSingle().then(result => {
+      setSettings(result.data)
+      setStatus(result.error ? errorMessage : result.data ? '' : 'هنوز تنظیمی ثبت نشده است.')
+    })
+  }, [superAdmin])
+
+  return <section className="card">
+    <h3>تنظیمات سرویس پیامکی</h3>
+    <p className="sub">ملی‌پیامک · ارسال کد ورود از Send SMS Hook</p>
+    {status && <p role="status">{status}</p>}
+    {settings && <dl>
+      <div><dt>روش اتصال</dt><dd>{settings.connection_method === 'pattern' ? 'ارسال با پترن' : 'وب‌سرویس'}</dd></div>
+      <div><dt>شناسه پترن</dt><dd>{settings.body_id || 'ثبت نشده'}</dd></div>
+      <div><dt>شماره ارسال‌کننده</dt><dd>{settings.sender || 'طبق تنظیمات سرویس'}</dd></div>
+      <div><dt>وضعیت</dt><dd>{({ unconfigured: 'تنظیم‌نشده', needs_review: 'نیازمند بررسی', connected: 'متصل', error: 'دارای خطا' } as Record<string, string>)[settings.status]}</dd></div>
+    </dl>}
+    <div className="notice info">
+      نام کاربری، رمز و API Key اینجا ذخیره نمی‌شوند. آن‌ها باید فقط در Supabase Project Secrets
+      قرار بگیرند و Hook سمت Auth به تابع ارسال پیامک متصل شود.
+    </div>
+    <p className="tiny">تست اتصال هزینه‌دار تا ثبت Secretهای سرور و تأیید مدیر اصلی فعال نمی‌شود.</p>
+  </section>
 }
 
 function Passport({ userId }: { userId: string }) {

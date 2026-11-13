@@ -9,15 +9,27 @@ const links = [
   ['followups', '◷', 'پیگیری روتین', 'پیگیری'],
   ['partners', '♙', 'پنل نماینده / مدرس', 'نماینده'],
   ['company', '▦', 'پنل شرکت زویتر', 'شرکت'],
-  ['settings', '⚙', 'حریم خصوصی و تنظیمات', 'تنظیمات'],
 ]
 
-export function VisualShell({ page, children }: { page: string; children: ReactNode }) {
+type ShellRole = 'guest' | 'customer' | 'representative' | 'consultant' | 'administrator'
+
+export function VisualShell({ page, role, children }: {
+  page: string
+  role: ShellRole
+  children: ReactNode
+}) {
+  const visibleLinks = links.filter(([id]) => {
+    if (role === 'guest') return id === 'home'
+    if (role === 'customer') return ['home', 'account', 'chat', 'followups'].includes(id)
+    if (role === 'representative') return ['home', 'account', 'chat', 'partners'].includes(id)
+    if (role === 'consultant') return ['home', 'account', 'chat'].includes(id)
+    return ['home', 'account', 'chat', 'company'].includes(id)
+  })
   return <div className="app">
     <aside className="side">
       <a className="brand" href="#home"><img src={wordmark} alt="Zuyter" /><small>SKIN PASSPORT</small></a>
       <nav className="nav" aria-label="بخش‌های اپلیکیشن">
-        {links.map(([id, icon, label]) => <a key={id} href={'#' + id} aria-current={page === id ? 'page' : undefined}>
+        {visibleLinks.map(([id, icon, label]) => <a key={id} href={'#' + id} aria-current={page === id ? 'page' : undefined}>
           <span className="ico" aria-hidden="true">{icon}</span>{label}
         </a>)}
       </nav>
@@ -31,7 +43,7 @@ export function VisualShell({ page, children }: { page: string; children: ReactN
       <footer className="footer"><span>ZUYTER · SKIN PASSPORT</span></footer>
     </div>
     <nav className="mobile-nav" aria-label="بخش‌های اپلیکیشن">
-      {links.map(([id, icon, , label]) => <a key={id} href={'#' + id} aria-current={page === id ? 'page' : undefined}>
+      {visibleLinks.map(([id, icon, , label]) => <a key={id} href={'#' + id} aria-current={page === id ? 'page' : undefined}>
         <b aria-hidden="true">{icon}</b>{label}
       </a>)}
     </nav>

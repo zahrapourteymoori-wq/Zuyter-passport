@@ -1,7 +1,8 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Session } from '@supabase/supabase-js'
-import { loginReturn, supabase } from './backend'
+import { supabase } from './backend'
+import { normalizeIranianMobile, toSupabasePhone } from './phone'
 import { activeQuestions, chooseAnswer, cleanAnswers, draftRoutine } from './questionnaire'
 import type { Answers } from './questionnaire'
 import { Dashboard } from './dashboard'
@@ -10,7 +11,7 @@ import { Landing } from './Landing'
 import { VisualShell } from './VisualShell'
 import './style.css'
 
-const routes = ['home', 'questions', 'result', 'account', 'chat', 'followups', 'partners', 'company', 'settings'] as const
+const routes = ['home', 'questions', 'result', 'account', 'chat', 'followups', 'partners', 'company'] as const
 type Page = typeof routes[number]
 
 function currentPage(): Page {
@@ -19,39 +20,59 @@ function currentPage(): Page {
 }
 
 function Login() {
-  const [signup, setSignup] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [token, setToken] = useState('')
+  const [sent, setSent] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   if (!supabase) return <p role="status">اتصال حساب کاربری هنوز پیکربندی نشده است.</p>
   const client = supabase
+  useEffect(() => {
+    if (!cooldown) return
+    const timer = window.setInterval(() => setCooldown(value => Math.max(0, value - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [cooldown])
   return <form onSubmit={async event => {
     event.preventDefault()
-    const fields = new FormData(event.currentTarget)
-    const email = String(fields.get('email'))
-    const password = String(fields.get('password'))
     setBusy(true)
     try {
-      const { error, data } = signup
-        ? await client.auth.signUp({ email, password, options: { emailRedirectTo: loginReturn() } })
-        : await client.auth.signInWithPassword({ email, password })
-      setMessage(error ? 'ورود یا ثبت‌نام انجام نشد. ایمیل و گذرواژه را بررسی کنید.'
-        : data.session ? 'وارد شدید.' : 'برای فعال‌سازی حساب، ایمیل خود را بررسی کنید.')
+      const normalized = normalizeIranianMobile(phone)
+      if (!normalized) {
+        setMessage('شماره باید ۱۱ رقم و با ۰۹ شروع شود.')
+        return
+      }
+      const supabasePhone = toSupabasePhone(normalized)
+      if (!supabasePhone) return
+      if (!sent) {
+        const { error } = await client.auth.signInWithOtp({ phone: supabasePhone })
+        setMessage(error ? 'ارسال کد انجام نشد. تنظیمات پیامک را بررسی کنید.' : 'کد تأیید ارسال شد.')
+        if (!error) {
+          setSent(true)
+          setCooldown(60)
+        }
+      } else {
+        const { error } = await client.auth.verifyOtp({ phone: supabasePhone, token: token.trim(), type: 'sms' })
+        setMessage(error ? 'کد معتبر نیست یا منقضی شده است.' : 'وارد شدید.')
+      }
     } catch {
       setMessage('ارتباط برقرار نشد. دوباره امتحان کنید.')
     } finally {
       setBusy(false)
     }
   }}>
-    <label>ایمیل<input name="email" type="email" dir="ltr" autoComplete="email" required /></label>
-    <label>گذرواژه<input name="password" type="password" dir="ltr" minLength={8}
-      autoComplete={signup ? 'new-password' : 'current-password'} required /></label>
+    <label>شماره موبایل ایران<input name="phone" inputMode="tel" dir="ltr" autoComplete="tel"
+      value={phone} onChange={event => setPhone(event.target.value)} placeholder="۰۹۱۲۳۴۵۶۷۸۹" required /></label>
+    {sent && <label>کد تأیید<input name="token" inputMode="numeric" dir="ltr" autoComplete="one-time-code"
+      value={token} onChange={event => setToken(event.target.value)} minLength={4} maxLength={8} required /></label>}
     <div className="actions">
-      <button disabled={busy}>{signup ? 'ساخت حساب' : 'ورود'}</button>
-      <button type="button" className="secondary" onClick={() => { setSignup(!signup); setMessage('') }}>
-        {signup ? 'حساب دارم' : 'ثبت‌نام'}
-      </button>
+      <button disabled={busy}>{sent ? 'تأیید کد' : 'ارسال کد'}</button>
+      {sent && <button type="button" className="secondary"
+        onClick={() => { setSent(false); setToken(''); setMessage('') }}>تغییر شماره</button>}
     </div>
-    <p role="status">{message}</p>
+    <p role="status">{message || (cooldown
+      ? 'برای جلوگیری از ارسال تکراری، کد بعدی پس از ' + cooldown.toLocaleString('fa-IR') + ' ثانیه قابل درخواست است.'
+      : 'کد یکبارمصرف از طریق سرویس پیامکی تنظیم‌شده ارسال می‌شود.')}</p>
   </form>
 }
 
@@ -76,6 +97,7 @@ function App() {
   const [status, setStatus] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState('')
+  const [role, setRole] = useState<'guest' | 'customer' | 'representative' | 'consultant' | 'administrator'>('guest')
   const questions = activeQuestions(draft.answers)
   const question = questions[index] ?? questions[0]
   const selections = draft.answers[question.id] ?? []
@@ -88,11 +110,25 @@ function App() {
     window.addEventListener('hashchange', handle)
     const listener = supabase?.auth.onAuthStateChange((event, next) => {
       setSession(next)
+      setRole(next ? 'customer' : 'guest')
       setAuthReady(true)
       if (event === 'SIGNED_IN' && location.hash === '') location.hash = 'account'
     })
     return () => { window.removeEventListener('hashchange', handle); listener?.data.subscription.unsubscribe() }
   }, [])
+
+  useEffect(() => {
+    if (!supabase || !session) {
+      setRole('guest')
+      return
+    }
+    let active = true
+    void supabase.from('user_roles').select('role').eq('user_id', session.user.id).single()
+      .then(result => {
+        if (active && result.data?.role) setRole(result.data.role)
+      })
+    return () => { active = false }
+  }, [session])
 
   async function save() {
     if (!supabase || !session) return
@@ -111,7 +147,7 @@ function App() {
     navigate('account')
   }
 
-  return <VisualShell page={page}>
+  return <VisualShell page={page} role={role}>
       {page === 'home' && <Landing go={navigate} />}
       {page === 'questions' && <section className="card quiz-panel">
         <h1>پرسشنامه پوستی</h1>
@@ -151,12 +187,6 @@ function App() {
           <p role="status">{status}</p>
         </> : <a href="#questions">تکمیل پرسشنامه</a>}
       </section>}
-      {page === 'settings' && <section className="card">
-        <h2>حریم خصوصی و تنظیمات</h2>
-        <p>پاسپورت فقط پس از ورود و انتخاب «ذخیره پاسپورت» در حساب شما ثبت می‌شود.</p>
-        <p>عکس پوست و پیامک در این نسخه فعال نیستند. متن سؤال دستیار برای پردازش به AvalAI ارسال می‌شود.</p>
-        <a href="#account">مدیریت حساب</a>
-      </section>}
       {(page === 'account' || page === 'chat' || page === 'followups' || page === 'partners' || page === 'company') && <section>
         <h2>{({ account: 'پاسپورت من', chat: 'راهنما و مشاوره زویتر', followups: 'پیگیری مسیر روتین', partners: 'پنل نماینده / مدرس', company: 'پنل شرکت زویتر' })[page]}</h2>
         {!authReady ? <p role="status">در حال بررسی حساب…</p> : session ? <>
@@ -174,7 +204,9 @@ function App() {
           </div>
           <p role="status">{status}</p>
           <Dashboard key={session.user.id} userId={session.user.id} section={page} />
-        </> : <Login />}
+        </> : page === 'account'
+          ? <Login />
+          : <p className="card" role="status">برای مشاهده این بخش وارد شوید.</p>}
       </section>}
   </VisualShell>
 }

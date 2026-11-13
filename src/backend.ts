@@ -12,3 +12,4 @@ export const roles = {
 }
 export type Role = keyof typeof roles
 export const loginReturn = () => window.location.origin + window.location.pathname + window.location.search
+export { normalizeIranianMobile, toSupabasePhone } from './phone'
