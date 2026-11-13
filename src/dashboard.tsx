@@ -64,12 +64,42 @@ export function Dashboard({ userId, section }: { userId: string; section: string
       ? <Referrals code={membership.referral_code} />
       : <p className="card">این پنل برای حساب نماینده فعال است.</p>)}
     {section === 'company' && (membership.role === 'administrator'
-      ? <><Administration /><SmsSettings superAdmin={membership.is_super_admin} /></>
+      ? <><Administration /><SmsSettings superAdmin={membership.is_super_admin} />{membership.is_super_admin && <StagingAdmin />}</>
       : <p className="card">این پنل برای مدیر شرکت فعال است.</p>)}
     {(section === 'chat' || (section === 'company' && membership.role === 'administrator')) &&
       <Consultations role={membership.role} />}
     {section === 'chat' && <Chat />}
   </>
+}
+
+function StagingAdmin() {
+  const [status, setStatus] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [users, setUsers] = useState<{ id: string; phone?: string; role?: Role; staging_only?: boolean; password_change_required?: boolean }[]>([])
+  const refresh = async () => {
+    const result = await client().functions.invoke<{ users: typeof users }>('staging-admin', { body: { action: 'list' } })
+    if (result.error) setStatus(errorMessage)
+    else setUsers(result.data?.users ?? [])
+  }
+  useEffect(() => { void refresh() }, [])
+  return <section className="card"><h3>حساب‌های آزمایشی Staging</h3>
+    <p className="sub">این حساب‌ها فقط برای Staging هستند و رمز اولیه هرگز در سامانه ذخیره یا نمایش داده نمی‌شود.</p>
+    <form onSubmit={async event => {
+      event.preventDefault(); setBusy(true); setStatus('')
+      const data = new FormData(event.currentTarget)
+      const result = await client().functions.invoke('staging-admin', { body: {
+        action: 'create_user', phone: data.get('phone'), display_name: data.get('display_name'), role: data.get('role'), password: data.get('password'),
+      } })
+      setBusy(false); setStatus(result.error ? errorMessage : 'حساب تستر ساخته شد.'); if (!result.error) { event.currentTarget.reset(); await refresh() }
+    }}>
+      <label>شماره موبایل<input name="phone" inputMode="tel" dir="ltr" placeholder="۰۹۱۲۳۴۵۶۷۸۹" required /></label>
+      <label>نام نمایشی<input name="display_name" maxLength={80} /></label>
+      <label>نقش<select name="role" defaultValue="customer">{Object.entries(roles).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <label>رمز اولیه<input name="password" type="password" dir="ltr" minLength={10} required /></label>
+      <button disabled={busy}>ساخت حساب تستر</button>{status && <p role="status">{status}</p>}
+    </form>
+    {users.length > 0 && <details><summary>فهرست حساب‌ها</summary><ul>{users.filter(user => user.staging_only).map(user => <li key={user.id}><bdi>{user.phone || user.id}</bdi> · {roles[user.role || 'customer']} · {user.password_change_required ? 'تغییر رمز لازم است' : 'فعال'}</li>)}</ul></details>}
+  </section>
 }
 
 function SmsSettings({ superAdmin }: { superAdmin: boolean }) {

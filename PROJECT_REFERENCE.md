@@ -229,3 +229,11 @@ The separately attached transfer receipt is outside the project reference set. T
 - **Admin RBAC:** is_super_admin, restricted role updates and non-secret SMS metadata are present in Supabase. Only a server-side owner action may set the first super admin. The UI never creates an administrator from ordinary registration.
 - **Navigation:** guest and authenticated role menus are filtered by role. Direct private routes still require an authenticated session and the database query policies remain authoritative.
 - **Open security action:** enable Supabase leaked-password protection before public release. Validate the actual national SMS endpoint from the deployed Edge Function region or place the provider call behind an approved Iran-hosted relay if the provider blocks the project region.
+
+## 17. Staging password access — 2026-11-14
+
+- Staging has a separate mobile-number login screen backed by a server-derived synthetic email identity; no OTP or SMS is used for this path. The original OTP path and `send-sms-hook` remain intact and disabled until SMS configuration is approved.
+- `profiles.password_change_required` and `profiles.staging_only` mark temporary accounts. The `staging-password` Edge Function changes the password server-side and clears the first-login flag only after a successful update.
+- The `staging-admin` Edge Function is JWT-protected and checks `is_super_admin` server-side before creating testers, resetting passwords, changing roles or permissions. Initial passwords are never persisted by the application.
+- A one-time bootstrap function created the requested Super Admin and now rejects further bootstrap calls. Production builds must set the runtime environment to reject `staging_only` accounts before public launch.
+- The requested test account is stored as a confirmed email-backed Auth identity with the mobile number represented in its staging login alias because Supabase Phone Auth is currently disabled in this project. Enabling Phone Auth remains an Auth dashboard action before switching the alias to native phone/password login.

@@ -11,6 +11,8 @@ import { Landing } from './Landing'
 import { VisualShell } from './VisualShell'
 import './style.css'
 
+const stagingEmail = (mobile: string) => `staging-${mobile.slice(1)}@zuyter.invalid`
+
 const routes = ['home', 'questions', 'result', 'account', 'chat', 'followups', 'partners', 'company'] as const
 type Page = typeof routes[number]
 
@@ -20,7 +22,9 @@ function currentPage(): Page {
 }
 
 function Login() {
+  const [mode, setMode] = useState<'otp' | 'password'>('password')
   const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
   const [token, setToken] = useState('')
   const [sent, setSent] = useState(false)
   const [cooldown, setCooldown] = useState(0)
@@ -44,7 +48,10 @@ function Login() {
       }
       const supabasePhone = toSupabasePhone(normalized)
       if (!supabasePhone) return
-      if (!sent) {
+      if (mode === 'password') {
+        const { error } = await client.auth.signInWithPassword({ email: stagingEmail(normalized), password })
+        setMessage(error ? 'شماره یا رمز Staging معتبر نیست.' : 'وارد شدید.')
+      } else if (!sent) {
         const { error } = await client.auth.signInWithOtp({ phone: supabasePhone })
         setMessage(error ? 'ارسال کد انجام نشد. تنظیمات پیامک را بررسی کنید.' : 'کد تأیید ارسال شد.')
         if (!error) {
@@ -61,19 +68,35 @@ function Login() {
       setBusy(false)
     }
   }}>
+    <div className="actions"><button type="button" className={mode === 'password' ? '' : 'secondary'} onClick={() => { setMode('password'); setSent(false); setMessage('') }}>ورود Staging با رمز</button><button type="button" className={mode === 'otp' ? '' : 'secondary'} onClick={() => { setMode('otp'); setSent(false); setMessage('') }}>ورود با کد پیامکی</button></div>
     <label>شماره موبایل ایران<input name="phone" inputMode="tel" dir="ltr" autoComplete="tel"
       value={phone} onChange={event => setPhone(event.target.value)} placeholder="۰۹۱۲۳۴۵۶۷۸۹" required /></label>
+    {mode === 'password' && <label>رمز Staging<input name="password" type="password" dir="ltr" autoComplete="current-password"
+      value={password} onChange={event => setPassword(event.target.value)} minLength={8} required /></label>}
     {sent && <label>کد تأیید<input name="token" inputMode="numeric" dir="ltr" autoComplete="one-time-code"
       value={token} onChange={event => setToken(event.target.value)} minLength={4} maxLength={8} required /></label>}
     <div className="actions">
-      <button disabled={busy}>{sent ? 'تأیید کد' : 'ارسال کد'}</button>
+      <button disabled={busy}>{mode === 'password' ? 'ورود' : (sent ? 'تأیید کد' : 'ارسال کد')}</button>
       {sent && <button type="button" className="secondary"
         onClick={() => { setSent(false); setToken(''); setMessage('') }}>تغییر شماره</button>}
     </div>
-    <p role="status">{message || (cooldown
+    <p role="status">{message || (mode === 'password' ? 'این مسیر فقط برای حساب‌های آزمایشی Staging فعال است.' : (cooldown
       ? 'برای جلوگیری از ارسال تکراری، کد بعدی پس از ' + cooldown.toLocaleString('fa-IR') + ' ثانیه قابل درخواست است.'
-      : 'کد یکبارمصرف از طریق سرویس پیامکی تنظیم‌شده ارسال می‌شود.')}</p>
+      : 'کد یکبارمصرف از طریق سرویس پیامکی تنظیم‌شده ارسال می‌شود.'))}</p>
   </form>
+}
+
+function PasswordChange({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState('')
+  const [busy, setBusy] = useState(false)
+  return <section className="card"><h2>تغییر رمز اجباری</h2><p>برای ادامه، یک رمز جدید و حداقل ۱۰ نویسه تعیین کنید.</p><form onSubmit={async event => {
+    event.preventDefault(); setBusy(true); setStatus('')
+    const result = await supabase!.functions.invoke('staging-password', { body: { password } })
+    setBusy(false)
+    if (result.error) return setStatus('تغییر رمز انجام نشد. رمز قوی‌تری انتخاب کنید.')
+    setStatus('رمز تغییر کرد.'); onDone()
+  }}><label>رمز جدید<input type="password" dir="ltr" minLength={10} required value={password} onChange={event => setPassword(event.target.value)} /></label><button disabled={busy}>ذخیره رمز جدید</button>{status && <p role="status">{status}</p>}</form></section>
 }
 
 const pendingKey = 'zuyter-pending-passport-integrated'
@@ -98,6 +121,7 @@ function App() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState('')
   const [role, setRole] = useState<'guest' | 'customer' | 'representative' | 'consultant' | 'administrator'>('guest')
+  const [passwordRequired, setPasswordRequired] = useState(false)
   const questions = activeQuestions(draft.answers)
   const question = questions[index] ?? questions[0]
   const selections = draft.answers[question.id] ?? []
@@ -111,6 +135,7 @@ function App() {
     const listener = supabase?.auth.onAuthStateChange((event, next) => {
       setSession(next)
       setRole(next ? 'customer' : 'guest')
+      if (!next) setPasswordRequired(false)
       setAuthReady(true)
       if (event === 'SIGNED_IN' && location.hash === '') location.hash = 'account'
     })
@@ -123,9 +148,17 @@ function App() {
       return
     }
     let active = true
-    void supabase.from('user_roles').select('role').eq('user_id', session.user.id).single()
-      .then(result => {
-        if (active && result.data?.role) setRole(result.data.role)
+    void Promise.all([
+      supabase.from('user_roles').select('role').eq('user_id', session.user.id).single(),
+      supabase.from('profiles').select('password_change_required, staging_only').eq('id', session.user.id).single(),
+    ]).then(async ([membership, profile]) => {
+        if (import.meta.env.VITE_APP_ENV === 'production' && profile.data?.staging_only) {
+          await supabase!.auth.signOut()
+          if (active) setStatus('این حساب فقط برای محیط Staging فعال است.')
+          return
+        }
+        if (active && membership.data?.role) setRole(membership.data.role)
+        if (active) setPasswordRequired(Boolean(profile.data?.password_change_required))
       })
     return () => { active = false }
   }, [session])
@@ -148,6 +181,7 @@ function App() {
   }
 
   return <VisualShell page={page} role={role}>
+      {session && passwordRequired ? <PasswordChange onDone={() => setPasswordRequired(false)} /> : null}
       {page === 'home' && <Landing go={navigate} />}
       {page === 'questions' && <section className="card quiz-panel">
         <h1>پرسشنامه پوستی</h1>
