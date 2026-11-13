@@ -177,3 +177,14 @@ Packaging integrity: serums are smallest; foams and creams comparable in scale; 
 ## 12. How to update this reference
 
 For each decision-changing implementation: update the relevant section in the **same PR/commit**, identifying whether it is **Approved**, **Proposed**, or **Open**. If a topic grows too large, create `docs/decisions/NNNN-topic.md` and link it here. Do not silently override this reference; escalate conflicting requests for owner confirmation.
+
+
+## 13. Functional preview — 2026-11-13
+
+- **Implemented:** Persian RTL React/Vite preview, guest questionnaire with conditional spot duration, versioned passport snapshots, email/password Auth, follow-up notes, consultation threads, role dashboards, consent-based referral registration and QR, and role change audit.
+- **Visual baseline open:** the repository and linked chat do not contain the approved V1 HTML, illustrations, or logo. The preview uses draft wording and a temporary layout and PWA icon. Compare the approved V1 before visual acceptance.
+- **Provisional routine:** behavior-based, nonmedical and generic. Product eligibility, protocol review and verified catalog are prerequisites for product recommendations and routine checkout.
+- **Preview hosting:** manually triggered GitHub Pages workflow, relative assets and hash routes. Offline storage covers the public shell. Configure the final site URL in Supabase Auth before testing signup redirects.
+- **Data boundaries:** consultants receive assigned consultation text only. Representatives can see referral registrations for their own code. Role management and consultation routing are administrator-only. Photo collection awaits the owner’s consent and retention decisions.
+- **AvalAI integration:** server-side Chat Completions with account verification, CORS allowlist, daily per-user quota and lexical retrieval of reviewed excerpts. The model selects an excerpt index. Displayed text is the approved excerpt and its source link. Model availability, official content and keys must be configured before enabling the service.
+- **Open:** V1 assets and copy, approved product protocols, privacy/age/photo decisions, live WooCommerce and SMS credentials, attribution/commission rules, final Pages URL and device acceptance.

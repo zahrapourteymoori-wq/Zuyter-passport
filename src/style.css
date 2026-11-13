@@ -1,0 +1,35 @@
+:root { font-family: Tahoma, Arial, sans-serif; color: #281c31; background: #f7f3fa; line-height: 1.7; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+h1, h2, h3 { line-height: 1.45; margin: 0 0 .75rem; }
+a { color: #573578; }
+.shell { min-height: 100vh; display: grid; grid-template-columns: 15rem minmax(0, 1fr); }
+aside { background: #43285e; color: white; padding: 1.5rem; }
+aside a { color: white; }
+.brand { font-size: 1.7rem; font-weight: bold; text-decoration: none; }
+nav { display: flex; flex-direction: column; gap: .5rem; }
+nav a { padding: .4rem .6rem; border-radius: .5rem; text-decoration: none; }
+nav a[aria-current] { background: #68438f; }
+main { width: min(100%, 66rem); padding: clamp(1rem, 4vw, 3rem); }
+.card, form { padding: 1.2rem; background: white; border: 1px solid #d8cbe7; border-radius: .85rem; margin-block: .8rem; }
+.intro { padding-block: 2rem; }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .75rem; }
+fieldset { border: 0; padding: 0; margin: 1rem 0; }
+legend { font-weight: bold; }
+label { display: block; margin-block: .5rem; }
+.choice { display: flex; align-items: center; gap: .6rem; padding: .5rem; border: 1px solid #d8cbe7; border-radius: .45rem; }
+button, input, textarea, select { font: inherit; }
+button { background: #68438f; color: white; border: 1px solid #68438f; border-radius: .5rem; padding: .5rem 1rem; cursor: pointer; }
+button.secondary { color: #43285e; background: white; }
+button:disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: 3px solid #a46cce; outline-offset: 2px; }
+input:not([type=radio], [type=checkbox]), textarea, select { display: block; width: 100%; padding: .4rem; border: 1px solid #796888; border-radius: .35rem; }
+textarea { min-height: 5rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin-block: .8rem; }
+.break { overflow-wrap: anywhere; }
+@media (max-width: 680px) {
+  .shell { grid-template-columns: 1fr; }
+  aside { padding: .65rem 1rem; }
+  aside p { display: none; }
+  nav { flex-direction: row; flex-wrap: wrap; }
+}
