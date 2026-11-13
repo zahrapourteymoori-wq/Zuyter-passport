@@ -3,7 +3,7 @@ import { groundedAnswer, isMedical, medical, noSource, retrieve } from './retrie
 
 Deno.serve(async request => {
   const origin = request.headers.get('origin')
-  const allowed = (Deno.env.get('ZUYTER_ALLOWED_ORIGINS') ?? '').split(',').map(value => value.trim()).filter(Boolean)
+  const allowed = (Deno.env.get('ZUYTER_ALLOWED_ORIGINS') ?? 'https://zahrapourteymoori-wq.github.io').split(',').map(value => value.trim()).filter(Boolean)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store',
@@ -48,19 +48,19 @@ Deno.serve(async request => {
   }
 
   if (isMedical(question)) return reply({ answer: medical, sources: [] })
-  const key = Deno.env.get('AVALAI_API_KEY')
-  const model = Deno.env.get('AVALAI_MODEL')
-  if (!key || !model) return reply({ error: 'unavailable' }, 503)
-  const quota = await db.rpc('reserve_chat_request', { account: user.id })
-  if (quota.error) return reply({ error: 'unavailable' }, 503)
-  if (!quota.data) return reply({ error: 'quota' }, 429)
-
   const approved = await db.from('knowledge_sources').select('title, url, excerpt')
     .not('approved_at', 'is', null).lte('approved_at', new Date().toISOString())
     .order('approved_at', { ascending: false }).limit(250)
   if (approved.error) return reply({ error: 'unavailable' }, 503)
   const sources = retrieve(question, approved.data)
   if (!sources.length) return reply({ answer: noSource, sources: [] })
+  const key = Deno.env.get('AVALAI_API_KEY')
+  const model = Deno.env.get('AVALAI_MODEL') || 'gpt-5.4-mini'
+  if (!key) return reply({ error: 'unavailable' }, 503)
+  const quota = await db.rpc('reserve_chat_request', { account: user.id })
+  if (quota.error) return reply({ error: 'unavailable' }, 503)
+  if (!quota.data) return reply({ error: 'quota' }, 429)
+
   // Only the submitted question and public, reviewed excerpts leave Supabase.
   try {
     const result = await fetch('https://api.avalai.ir/v1/chat/completions', {

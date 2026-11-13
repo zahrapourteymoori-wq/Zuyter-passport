@@ -1,3 +1,4 @@
+import { products } from './products'
 import type { draftRoutine } from './questionnaire'
 
 export function Routine({ routine }: { routine: ReturnType<typeof draftRoutine> }) {
@@ -11,5 +12,10 @@ export function Routine({ routine }: { routine: ReturnType<typeof draftRoutine> 
         </section>
       )}
     </div>
+    <details>
+      <summary>محصولات زویتر در فروشگاه</summary>
+      <p>برای مشاهده توضیحات رسمی محصول و خرید به فروشگاه بروید. انتخاب محصول مناسب روتین شما نیاز به بررسی دارد.</p>
+      <ul>{Object.values(products).map(product => <li key={product.url}><a href={product.url}>{product.title}</a></li>)}</ul>
+    </details>
   </>
 }

@@ -4,10 +4,10 @@ import QRCode from 'qrcode'
 import { roles, supabase } from './backend'
 import type { Role } from './backend'
 import { Routine } from './Routine'
-import { questions } from './questionnaire'
+import { answerSummary } from './questionnaire'
 import type { Answers, draftRoutine } from './questionnaire'
 
-type Assessment = { id: string; created_at: string; answers: Answers; routine: ReturnType<typeof draftRoutine> }
+type Assessment = { id: string; version: string; created_at: string; answers: Answers; routine: ReturnType<typeof draftRoutine> }
 type Followup = { day: number; note: string }
 type Ticket = { id: string; question: string; channel: keyof typeof channels; consultant_id: string | null }
 type Reply = { id: string; consultation_id: string; body: string }
@@ -43,7 +43,7 @@ function ActionForm({ children, submit, label }: {
   </form>
 }
 
-export function Dashboard({ userId }: { userId: string }) {
+export function Dashboard({ userId, section }: { userId: string; section: string }) {
   const [membership, setMembership] = useState<{ role: Role; referral_code: string }>()
   const [error, setError] = useState(false)
   useEffect(() => {
@@ -58,12 +58,16 @@ export function Dashboard({ userId }: { userId: string }) {
   }, [userId])
   if (!membership) return <p role="status">{error ? errorMessage : 'در حال دریافت داشبورد…'}</p>
   return <>
-    <h2>داشبورد {roles[membership.role]}</h2>
-    <Passport userId={userId} />
-    {membership.role === 'representative' && <Referrals code={membership.referral_code} />}
-    {membership.role === 'administrator' && <Administration />}
-    <Consultations role={membership.role} />
-    <Chat />
+    {section === 'account' && <h3>داشبورد {roles[membership.role]}</h3>}
+    {(section === 'account' || section === 'followups') && <Passport userId={userId} />}
+    {section === 'partners' && (membership.role === 'representative'
+      ? <Referrals code={membership.referral_code} />
+      : <p className="card">این پنل برای حساب نماینده فعال است.</p>)}
+    {section === 'company' && (membership.role === 'administrator'
+      ? <Administration /> : <p className="card">این پنل برای مدیر شرکت فعال است.</p>)}
+    {(section === 'chat' || (section === 'company' && membership.role === 'administrator')) &&
+      <Consultations role={membership.role} />}
+    {section === 'chat' && <Chat />}
   </>
 }
 
@@ -77,7 +81,7 @@ function Passport({ userId }: { userId: string }) {
   useEffect(() => {
     let active = true
     void Promise.all([
-      client().from('skin_assessments').select('id, created_at, answers, routine')
+      client().from('skin_assessments').select('id, version, created_at, answers, routine')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(12),
       client().from('skin_followups').select('day, note').eq('user_id', userId),
     ]).then(([passport, notes]) => {
@@ -97,8 +101,8 @@ function Passport({ userId }: { userId: string }) {
       <summary>نتیجه {new Date(assessment.created_at).toLocaleDateString('fa-IR')}</summary>
       <Routine routine={assessment.routine} />
       <details><summary>مرور پاسخ‌ها</summary>
-        <dl>{questions.filter(question => assessment.answers[question.id]?.length).map(question =>
-          <div key={question.id}><dt>{question.label}</dt><dd>{assessment.answers[question.id].join('، ')}</dd></div>
+        <dl>{answerSummary(assessment.answers, assessment.version).map(question =>
+          <div key={question.id}><dt>{question.label}</dt><dd>{question.values?.join('، ')}</dd></div>
         )}</dl>
       </details>
     </details>)}

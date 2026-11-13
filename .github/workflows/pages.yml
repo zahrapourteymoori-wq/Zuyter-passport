@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VITE_SUPABASE_URL: https://qfbnhemkbwrsqpdmmspc.supabase.co
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_GVOdUWi4BtMur55LkglQNQ_2WRRsPQH' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

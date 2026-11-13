@@ -2,13 +2,15 @@ import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Session } from '@supabase/supabase-js'
 import { loginReturn, supabase } from './backend'
-import { activeQuestions, cleanAnswers, draftRoutine } from './questionnaire'
+import { activeQuestions, chooseAnswer, cleanAnswers, draftRoutine } from './questionnaire'
 import type { Answers } from './questionnaire'
 import { Dashboard } from './dashboard'
 import { Routine } from './Routine'
+import { Landing } from './Landing'
+import { VisualShell } from './VisualShell'
 import './style.css'
 
-const routes = ['home', 'questions', 'result', 'account'] as const
+const routes = ['home', 'questions', 'result', 'account', 'chat', 'followups', 'partners', 'company', 'settings'] as const
 type Page = typeof routes[number]
 
 function currentPage(): Page {
@@ -53,7 +55,7 @@ function Login() {
   </form>
 }
 
-const pendingKey = 'zuyter-pending-passport'
+const pendingKey = 'zuyter-pending-passport-integrated'
 const blankDraft = { id: '', answers: {} as Answers }
 function restoreDraft() {
   try {
@@ -97,7 +99,7 @@ function App() {
     setSaving(true)
     setStatus('')
     const { error } = await supabase.from('skin_assessments').insert({
-      id: draft.id, version: 'draft-1', answers: cleanAnswers(draft.answers), routine,
+      id: draft.id, version: 'integrated-1', answers: cleanAnswers(draft.answers), routine,
     })
     const exists = error?.code === '23505'
       ? (await supabase.from('skin_assessments').select('id').eq('id', draft.id).maybeSingle()).data
@@ -109,33 +111,20 @@ function App() {
     navigate('account')
   }
 
-  return <div className="shell">
-    <aside><a className="brand" href="#home">زویتر</a><p>پاسپورت پوستی</p>
-      <nav aria-label="منوی اصلی">
-        <a href="#home" aria-current={page === 'home' ? 'page' : undefined}>خانه</a>
-        <a href="#questions" aria-current={page === 'questions' ? 'page' : undefined}>پرسشنامه</a>
-        <a href="#account" aria-current={page === 'account' ? 'page' : undefined}>حساب من</a>
-      </nav>
-    </aside>
-    <main>
-      {page === 'home' && <section className="card intro">
-        <h1>پاسپورت پوستی زویتر</h1>
-        <p>با پاسخ به چند سؤال، الگوی اولیه پوست و مراحل روتین صبح و شب را ببینید.</p>
-        <button onClick={() => navigate('questions')}>شروع پرسشنامه</button>
-      </section>}
-      {page === 'questions' && <section className="card">
+  return <VisualShell page={page}>
+      {page === 'home' && <Landing go={navigate} />}
+      {page === 'questions' && <section className="card quiz-panel">
         <h1>پرسشنامه پوستی</h1>
         <p>سؤال {(index + 1).toLocaleString('fa-IR')} از {questions.length.toLocaleString('fa-IR')}</p>
+        <progress value={index + 1} max={questions.length} aria-label="پیشرفت پرسشنامه" />
         <fieldset key={question.id}>
           <legend>{question.label}</legend>
-          {question.options.map(option => <label className="choice" key={option}>
+          <p className="sub">{question.hint}</p>
+          {question.options.map(([option, label]) => <label className="choice" key={option}>
             <input type={question.multiple ? 'checkbox' : 'radio'} name={question.id}
               checked={selections.includes(option)} onChange={() => {
-                const values = question.multiple
-                  ? selections.includes(option) ? selections.filter(value => value !== option) : [...selections, option]
-                  : [option]
-                setDraft({ id: crypto.randomUUID(), answers: cleanAnswers({ ...draft.answers, [question.id]: values }) })
-              }} />{option}
+                setDraft({ id: crypto.randomUUID(), answers: chooseAnswer(question.id, draft.answers, option) })
+              }} />{label}
           </label>)}
         </fieldset>
         <div className="actions">
@@ -157,13 +146,19 @@ function App() {
                 try { sessionStorage.setItem(pendingKey, JSON.stringify(draft)) } catch { /* Keep the in-memory draft. */ }
                 navigate('account')
               }}>ورود برای ذخیره پاسپورت</button>}
-            <a href="#account">سؤال بیشتری دارید؟</a>
+            <a href="#chat">سؤال بیشتری دارید؟</a>
           </div>
           <p role="status">{status}</p>
         </> : <a href="#questions">تکمیل پرسشنامه</a>}
       </section>}
-      {page === 'account' && <section>
-        <h1>حساب من</h1>
+      {page === 'settings' && <section className="card">
+        <h2>حریم خصوصی و تنظیمات</h2>
+        <p>پاسپورت فقط پس از ورود و انتخاب «ذخیره پاسپورت» در حساب شما ثبت می‌شود.</p>
+        <p>عکس پوست و پیامک در این نسخه فعال نیستند. متن سؤال دستیار برای پردازش به AvalAI ارسال می‌شود.</p>
+        <a href="#account">مدیریت حساب</a>
+      </section>}
+      {(page === 'account' || page === 'chat' || page === 'followups' || page === 'partners' || page === 'company') && <section>
+        <h2>{({ account: 'پاسپورت من', chat: 'راهنما و مشاوره زویتر', followups: 'پیگیری مسیر روتین', partners: 'پنل نماینده / مدرس', company: 'پنل شرکت زویتر' })[page]}</h2>
         {!authReady ? <p role="status">در حال بررسی حساب…</p> : session ? <>
           <div className="actions">
             <button className="secondary" onClick={async () => {
@@ -178,11 +173,10 @@ function App() {
             {complete && saved !== draft.id && <a href="#result">بازگشت برای ذخیره نتیجه</a>}
           </div>
           <p role="status">{status}</p>
-          <Dashboard key={session.user.id} userId={session.user.id} />
+          <Dashboard key={session.user.id} userId={session.user.id} section={page} />
         </> : <Login />}
       </section>}
-    </main>
-  </div>
+  </VisualShell>
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

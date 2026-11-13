@@ -2,3 +2,6 @@ project_id = "zuyter-passport"
 
 [functions.zuyter-chat]
 verify_jwt = true
+
+[functions.woocommerce-orders]
+verify_jwt = false
