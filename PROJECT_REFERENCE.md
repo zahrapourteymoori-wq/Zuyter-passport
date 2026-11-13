@@ -182,9 +182,31 @@ For each decision-changing implementation: update the relevant section in the **
 ## 13. Functional preview — 2026-11-13
 
 - **Implemented:** Persian RTL React/Vite preview, guest questionnaire with conditional spot duration, versioned passport snapshots, email/password Auth, follow-up notes, consultation threads, role dashboards, consent-based referral registration and QR, and role change audit.
-- **Visual baseline open:** the repository and linked chat do not contain the approved V1 HTML, illustrations, or logo. The preview uses draft wording and a temporary layout and PWA icon. Compare the approved V1 before visual acceptance.
+- **Visual baseline:** the preview uses draft wording and a temporary layout and PWA icon. The later source review in section 14 records the V1 HTML and available question screens found locally.
 - **Provisional routine:** behavior-based, nonmedical and generic. Product eligibility, protocol review and verified catalog are prerequisites for product recommendations and routine checkout.
 - **Preview hosting:** manually triggered GitHub Pages workflow, relative assets and hash routes. Offline storage covers the public shell. Configure the final site URL in Supabase Auth before testing signup redirects.
 - **Data boundaries:** consultants receive assigned consultation text only. Representatives can see referral registrations for their own code. Role management and consultation routing are administrator-only. Photo collection awaits the owner’s consent and retention decisions.
 - **AvalAI integration:** server-side Chat Completions with account verification, CORS allowlist, daily per-user quota and lexical retrieval of reviewed excerpts. The model selects an excerpt index. Displayed text is the approved excerpt and its source link. Model availability, official content and keys must be configured before enabling the service.
-- **Open:** V1 assets and copy, approved product protocols, privacy/age/photo decisions, live WooCommerce and SMS credentials, attribution/commission rules, final Pages URL and device acceptance.
+- **Open:** migration of V1 styling and verified questionnaire copy, approved product protocols, privacy/age/photo decisions, live WooCommerce and SMS credentials, attribution/commission rules, final Pages URL and device acceptance.
+
+## 14. Source review and precedence — 2026-11-13
+
+**Confirmed by owner:** use the original V1 HTML for approved layout, styling and embedded branding. Use the integrated HTML for the added feature and navigation reference. Use the question PNGs for the screens they cover. Use the product requirements PDF and this document for technical and product decisions, with conflicts recorded explicitly. Retain React, TypeScript, PWA and Supabase. Route AvalAI through the authenticated Edge Function and keep secrets out of Git.
+
+| Source available locally | Review result | SHA-256 |
+|---|---|---|
+| Zuyter_Skin_Passport_App_Demo_v1.html | Visual baseline includes the embedded branding, landing page and responsive navigation. Both numbered copies match. | `53e3cb408b7a402c50fe823316760aebbfec4d065e9fab2ea091078b5ad99d8b` |
+| ZUYTER_Skin_Passport_Complete_V1_Plus_Dashboards.html | Adds the questionnaire, routine, cart and sales views. Both numbered copies match. Treat demo business behavior as prototype evidence. | `717f6e40933867af1f64a3e246ff6944a5aa300ad85d27c85d96e4328cea46e7` |
+| Zuyter_Skin_Passport_Question_Pages_PNG.zip | Eight complete screens: questions 6–12 and conditional 9a. Approved visual references for questions 1–5 have yet to be located. | `231337dec98dc51b97dc3349edc39cead45bdcb3ab03e83fa33596cb96168d3a` |
+| Zuyter_Skin_Passport_Product_Requirements_FA.pdf | Fifteen-page v0.1 requirements draft found in Downloads. Both numbered copies match. | `49c4c96c2b60c511c6e3e9ed9fdc1d1adc0ca34c9a3d20745ccbf8d498898722` |
+
+The separately attached transfer receipt is outside the project reference set. This review records source identities without importing the source files into the repository.
+
+### Conflicts and release decisions
+
+- **Entry flow:** section 2 approves a guest questionnaire and initial result before account creation. The PDF describes a post-purchase QR journey with consent and phone OTP near entry. The integrated HTML has a demo passport gate. Keep the approved guest path for the preview. Confirm how a separate verified post-purchase journey should work before adding one. Phone OTP still requires a provider decision.
+- **Questionnaire:** PNG 6 uses one frequency answer and integrated HTML 6 uses multiple symptom selections. PNG 7 asks about frequency of reactivity and integrated HTML 7 asks for multiple triggers. PNG 10 offers multiple product categories and integrated HTML 10 asks for a single routine description. PNG 12 allows declining to answer a health-related question and integrated HTML 12 asks for multiple influencing factors. The current React preview has its own draft wording. Recreate the supplied screens as accessible controls using the ZIP as reference. Confirm screens 1–5, conditional behavior for 9a and data compatibility before changing stored questionnaire formats or routine rules.
+- **Product and purchase rules:** the integrated demo derives its skin pattern from question 3 and includes a cart and sales view. The approved rules require professional review of eligibility, actual catalog items and verified checkout. The PDF also distinguishes self-reported from verified purchases and leaves storefront integration timing open.
+- **Privacy and support:** the PDF describes optional private photos, separate marketing consent, scheduled follow-ups, scoped representative and expert access, and human escalation. The preview currently has manual follow-up notes, role-scoped consultations and a bounded AvalAI function. Agree on consent, retention, role access, notification provider and escalation before collecting photos, expanding data access or enabling automatic messaging.
+
+**Next reversible implementation:** port the approved V1 shell and landing page in a focused React/CSS change, then check a mobile and desktop viewport against V1. Apply the supplied questionnaire screens as a separate change with a focused flow test. Source review precedes application changes.
